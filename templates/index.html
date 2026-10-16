@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARIES Recovery & Concurrency Simulator</title>
+<!-- MODULE 13 - DASHBOARD (Owner: Palak Panai)
+     One-screen layout: controls on the left, result + live tables on the right.
+     Plain HTML + JS, talks to app.py through fetch(). -->
+<style>
+ *{box-sizing:border-box}
+ html,body{height:100%;margin:0}
+ body{font-family:Segoe UI,Arial,sans-serif;background:#f3f5fa;color:#222;display:flex;flex-direction:column}
+ header{background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.1);padding:8px 14px;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;z-index:10}
+ header h1{font-size:17px;margin:0}
+ .meta{font-size:13px;color:#555}
+ #toast{flex:1 1 320px;font-size:13px;padding:7px 10px;border-radius:6px;background:#EAF3DE;color:#27500A;min-height:32px}
+ #toast.bad{background:#FAECE7;color:#712B13} #toast.warn{background:#FBEAF0;color:#72243E}
+ .layout{flex:1;min-height:0;display:grid;gap:12px;padding:12px;
+   grid-template-columns:340px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);
+   grid-template-areas:"controls output" "controls state"}
+ .controls{grid-area:controls;overflow-y:auto;padding-right:4px}
+ .output{grid-area:output;max-height:42vh;overflow-y:auto}
+ .state{grid-area:state;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:12px;align-content:start}
+ .wide{grid-column:1 / -1}
+ .card{background:#fff;border-radius:10px;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+ .controls .card{margin-bottom:10px}
+ summary{font-size:14px;font-weight:700;color:#185FA5;cursor:pointer}
+ h2{font-size:14px;margin:0 0 8px;color:#185FA5}
+ label{display:block;font-size:12px;color:#555;margin-top:7px}
+ input,select,textarea{width:100%;padding:6px;border:1px solid #ccc;border-radius:6px;font-size:13px;margin-top:2px;font-family:inherit}
+ textarea{font-family:monospace;font-size:12px;height:100px}
+ button{border:0;border-radius:6px;padding:8px 10px;font-size:13px;font-weight:600;cursor:pointer;margin-top:8px;width:100%;color:#fff;background:#185FA5}
+ button:hover{filter:brightness(1.1)}
+ button.g{background:#3B6D11}button.r{background:#A5333A}button.o{background:#B5651D}button.x{background:#777}
+ .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+ table{width:100%;border-collapse:collapse;font-size:12.5px}th,td{text-align:left;padding:4px 6px;border-bottom:1px solid #eee}th{color:#555}
+ .pill{display:inline-block;padding:2px 11px;border-radius:20px;font-size:12px;font-weight:700;color:#fff}
+ .up{background:#3B6D11}.down{background:#A5333A}
+ .ACTIVE{color:#B5651D;font-weight:600}.COMMITTED{color:#3B6D11;font-weight:600}.ABORTED{color:#A5333A;font-weight:600}
+ .b{display:inline-block;padding:1px 7px;border-radius:12px;font-size:11px;font-weight:700}
+ .BEGIN{background:#E6F1FB;color:#185FA5}.UPDATE{background:#EEEDFE;color:#534AB7}.COMMIT{background:#EAF3DE;color:#3B6D11}
+ .ABORT{background:#FAECE7;color:#993C1D}.CLR{background:#FBEAF0;color:#993556}.END{background:#eee;color:#555}.CHECKPOINT{background:#FFF3CD;color:#7a5b00}
+ .log{font-family:monospace;font-size:12px;padding:3px 0;border-bottom:1px dashed #eee}
+ .phase{border-left:4px solid #185FA5;background:#F7FAFD;padding:7px 10px;margin-bottom:7px;border-radius:4px;font-size:12.5px}
+ .phase.redo{border-color:#534AB7}.phase.undo{border-color:#993556}
+ .ok{color:#3B6D11;font-weight:700}.fail{color:#A5333A;font-weight:700}
+ .small{font-size:12px;color:#666}
+ ol.quick{margin:6px 0 0 18px;padding:0;font-size:13px;line-height:1.7}
+ @media (max-width:900px){
+   html,body{height:auto} body{display:block}
+   header{position:sticky;top:0}
+   .layout{display:flex;flex-direction:column;overflow:visible}
+   .output{order:1;max-height:none}.controls{order:2;overflow:visible}.state{order:3;overflow:visible;grid-template-columns:1fr}
+ }
+</style>
+</head>
+<body>
+<header>
+ <h1>ARIES-Based Database Recovery &amp; Concurrency Simulator</h1>
+ <div class="meta">Status: <span id="status" class="pill up">RUNNING</span> &nbsp;Armed crash: <b id="armed">none</b> &nbsp;Last LSN: <b id="lastlsn">0</b></div>
+ <div id="toast">Ready. Click "Begin new transaction" to start.</div>
+</header>
+
+<div class="layout">
+
+<!-- ================= LEFT: CONTROLS ================= -->
+<div class="controls">
+ <details class="card" open><summary>1. Transactions</summary>
+  <button onclick="act('/api/begin')">Begin new transaction</button>
+  <label>Active transaction</label><select id="txn"></select>
+  <div class="row"><div><label>Key</label><input id="key" value="AccountA"></div>
+  <div><label>Value</label><input id="val" value="4000"></div></div>
+  <div class="row"><button onclick="op('write')">Write</button><button class="x" onclick="op('read')">Read</button></div>
+  <div class="row"><button class="g" onclick="op('commit')">Commit</button><button class="r" onclick="op('abort')">Abort</button></div>
+ </details>
+
+ <details class="card" open><summary>2. Buffer / disk</summary>
+  <div class="row"><button class="x" onclick="act('/api/flush')">Flush buffer</button><button class="x" onclick="act('/api/checkpoint')">Checkpoint</button></div>
+  <div class="small" style="margin-top:6px">Writes stay in the memory buffer until flushed or checkpointed.</div>
+ </details>
+
+ <details class="card" open><summary>3. Crash &amp; recovery</summary>
+  <label>Crash point (fires on the next matching operation)</label>
+  <select id="point">{% for k,v in crash_points.items() %}<option value="{{k}}">{{v}}</option>{% endfor %}</select>
+  <button class="o" onclick="arm()">Arm crash point</button>
+  <div class="row"><button class="o" onclick="act('/api/crash')">Crash now</button><button onclick="recover()">Run ARIES recovery</button></div>
+  <div class="row"><button class="x" onclick="deadlock()">Check deadlock</button><button class="r" onclick="resetAll()">Reset everything</button></div>
+ </details>
+
+ <details class="card"><summary>4. Scheduler &amp; threads</summary>
+  <label>Transaction programs (JSON)</label>
+  <textarea id="progs">{"T1":[["write","X","1"],["write","Y","1"],["commit"]],
+"T2":[["write","Y","2"],["write","X","2"],["commit"]]}</textarea>
+  <div class="row"><div><label>Policy</label><select id="policy"><option value="round_robin">Round Robin</option><option value="fcfs">FCFS</option></select></div>
+  <div><label>Quantum</label><input id="quantum" value="1"></div></div>
+  <label>Crash after N operations (optional)</label><input id="crashafter" placeholder="e.g. 3">
+  <button onclick="runSched()">Run with scheduler</button>
+  <button class="x" onclick="runThreads()">Run with real threads</button>
+  <div class="small" style="margin-top:6px">Tip: add ["sleep",0.3] after the first write to force overlap in thread mode.</div>
+ </details>
+
+ <details class="card" open><summary>5. The 8 crash scenarios</summary>
+  <div id="scen"></div>
+  <div class="small" style="margin-top:6px">Running a scenario resets the database first.</div>
+ </details>
+</div>
+
+<!-- ================= RIGHT TOP: OUTPUT ================= -->
+<div class="output card" id="output">
+ <h2>Output (recovery trace / scenario / scheduler)</h2>
+ <div id="out">
+  <b>Quick start</b>
+  <ol class="quick">
+   <li>Begin new transaction</li><li>Write (AccountA = 4000)</li><li>Commit</li>
+   <li>Crash now</li><li>Run ARIES recovery &rarr; watch Analysis, Redo, Undo here</li>
+  </ol>
+  <div class="small" style="margin-top:6px">Or click scenario 4, 3 or 8 on the left for a ready-made demo.</div>
+ </div>
+</div>
+
+<!-- ================= RIGHT BOTTOM: LIVE STATE ================= -->
+<div class="state">
+ <div class="card"><h2>Transaction table</h2><table id="tt"><thead><tr><th>Txn</th><th>Status</th><th>Last LSN</th></tr></thead><tbody></tbody></table></div>
+ <div class="card"><h2>Lock table &amp; wait-for graph</h2><table id="lt"><tbody></tbody></table><div id="wf" class="small"></div></div>
+ <div class="card"><h2>Buffer (memory - lost in crash)</h2><table id="bt"><thead><tr><th>Key</th><th>Value</th><th>pageLSN</th><th>recLSN</th></tr></thead><tbody></tbody></table></div>
+ <div class="card"><h2>Database on disk (survives crash)</h2><table id="dt"><thead><tr><th>Key</th><th>Value</th><th>pageLSN</th></tr></thead><tbody></tbody></table></div>
+ <div class="card wide"><h2>WAL log (file - survives crash)</h2><div id="wal" style="max-height:220px;overflow-y:auto"></div></div>
+</div>
+
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function api(url,method="GET",body=null){
+  const o={method,headers:{"Content-Type":"application/json"}}; if(body)o.body=JSON.stringify(body);
+  return (await fetch(url,o)).json();}
+function msg(text,cls=""){const t=$("toast");t.textContent=text;t.className=cls;}
+function showOut(html){
+  $("out").innerHTML=html;$("output").scrollTop=0;
+  if(window.innerWidth<=900)$("output").scrollIntoView({behavior:"smooth",block:"start"});}
+function report(r){
+  const s=r.status||"";
+  if(s==="BLOCKED")msg(`BLOCKED - waiting for lock held by ${r.waiting_for}`,"warn");
+  else if(["ERROR","TIMEOUT"].includes(s))msg(r.message,"bad");
+  else if(s==="DEADLOCK")msg(`DEADLOCK ${r.cycle.join(" -> ")} : ${r.message}`,"bad");
+  else if(s==="CRASHED")msg(`SYSTEM CRASHED - ${r.message}. Now click "Run ARIES recovery".`,"bad");
+  else if(r.flushed!==undefined)msg(`OK - flushed to disk: ${r.flushed.join(", ")||"nothing to flush"}`);
+  else if(r.active!==undefined)msg(`Checkpoint written at LSN ${r.lsn}; flushed: ${r.flushed_pages.join(", ")||"nothing"}`);
+  else msg(s+(r.value!==undefined?` - value = ${r.value}`:"")+(r.txn_id?` - ${r.txn_id} started`:""));}
+async function act(url){const r=await api(url,"POST");report(r);await refresh();
+  if(r.txn_id)$("txn").value=r.txn_id;}
+async function op(kind){
+  if(!$("txn").value){msg("Begin a transaction first.","bad");return;}
+  const r=await api("/api/"+kind,"POST",{txn_id:$("txn").value,key:$("key").value,value:$("val").value});
+  report(r);await refresh();}
+async function arm(){const r=await api("/api/arm-crash","POST",{point:$("point").value});msg("Armed: "+r.point+" - it fires on your next matching action.","warn");await refresh();}
+async function recover(){const r=await api("/api/recover","POST");showOut(recoveryHTML(r));msg("Recovery finished - database is consistent again.");await refresh();}
+async function deadlock(){const r=await api("/api/deadlock-check");msg(r.deadlock?"Deadlock: "+r.cycle.join(" -> "):"No deadlock right now.",r.deadlock?"bad":"");}
+async function resetAll(){await api("/api/reset","POST");showOut('<span class="small">Reset done. Everything is empty.</span>');msg("Reset - fresh database.");await refresh();}
+function recoveryHTML(r){
+  const a=r.analysis;
+  let h=`<div class="phase"><b>1. ANALYSIS</b> - scanned ${a.records_scanned} of ${a.total_records} log records`+
+   (a.checkpoint_lsn?` (started at checkpoint LSN ${a.checkpoint_lsn})`:" (no checkpoint, scanned from the start)")+
+   `<br>Winners (committed): ${esc(a.winners.join(", ")||"none")} &nbsp; Losers (incomplete): ${esc(a.losers.join(", ")||"none")}`+
+   `<br>Dirty page table: ${esc(JSON.stringify(a.dirty_page_table))}</div>`;
+  h+=`<div class="phase redo"><b>2. REDO</b> (repeat history)<br>`+(r.redo.map(e=>`LSN ${e.lsn} ${esc(e.key)} <b>${e.action}</b> - ${esc(e.reason)}`).join("<br>")||"nothing to redo")+`</div>`;
+  h+=`<div class="phase undo"><b>3. UNDO</b> (roll back losers, newest first)<br>`+(r.undo.map(e=>`LSN ${e.lsn} ${esc(e.txn_id)} <b>${e.action}</b> - ${esc(e.reason)}`).join("<br>")||"nothing to undo")+`</div>`;
+  return h;}
+function parseProgs(){try{return JSON.parse($("progs").value)}catch(e){msg("The program JSON is invalid.","bad");return null;}}
+async function runSched(){
+  const programs=parseProgs();if(!programs)return;
+  const ca=$("crashafter").value?parseInt($("crashafter").value):null;
+  const r=await api("/api/run-scheduler","POST",{programs,policy:$("policy").value,quantum:parseInt($("quantum").value)||1,crash_after:ca});
+  showOut(`<b>Scheduler timeline (${esc($("policy").value)}) - outcome: ${r.outcome}</b><table><thead><tr><th>Step</th><th>Txn</th><th>Operation</th><th>Result</th></tr></thead><tbody>`+
+   r.trace.map(e=>`<tr><td>${e.step}</td><td>${esc(e.txn)}</td><td>${esc(e.op)}</td><td>${esc(e.result)}</td></tr>`).join("")+"</tbody></table>"+
+   (r.outcome==="CRASHED"?'<div class="small">System crashed. Click "Run ARIES recovery".</div>':""));
+  msg("Scheduler finished: "+r.outcome,r.outcome==="CRASHED"?"bad":"");await refresh();}
+async function runThreads(){
+  const programs=parseProgs();if(!programs)return;
+  const r=await api("/api/run-threads","POST",{programs});
+  showOut(`<b>Real threads - results: ${esc(JSON.stringify(r.results))}</b><table><thead><tr><th>Time (s)</th><th>Thread</th><th>Event</th></tr></thead><tbody>`+
+   r.trace.map(e=>`<tr><td>${e.time}</td><td>${esc(e.thread)}</td><td>${esc(e.event)}</td></tr>`).join("")+"</tbody></table>");
+  msg("Thread run finished.");await refresh();}
+async function loadScenarios(){
+  const list=await api("/api/scenarios");
+  $("scen").innerHTML=list.map(s=>`<button class="x" title="${esc(s.explain)}" onclick="runScenario(${s.id})">${s.id}. ${esc(s.title)}</button>`).join("");}
+async function runScenario(n){
+  const r=await api("/api/scenario/"+n,"POST");
+  showOut(`<b>Scenario ${r.id}: ${esc(r.title)}</b> - <span class="${r.passed?"ok":"fail"}">${r.passed?"PASSED":"FAILED"}</span>`+
+   `<div class="small">${esc(r.explain)}</div><br>`+r.steps.map(s=>"&bull; "+esc(s)).join("<br>")+
+   `<br><br>Expected: <code>${esc(JSON.stringify(r.expected))}</code><br>Actual: <code>${esc(JSON.stringify(r.actual))}</code><br><br>`+recoveryHTML(r.recovery));
+  msg(`Scenario ${r.id} ${r.passed?"PASSED":"FAILED"} - ${r.title}`,r.passed?"":"bad");await refresh();}
+async function refresh(){
+  const s=await api("/api/state"),w=await api("/api/wal");
+  const st=$("status");st.textContent=s.running?"RUNNING":"CRASHED - run recovery";st.className="pill "+(s.running?"up":"down");
+  $("armed").textContent=s.armed_crash||"none";$("lastlsn").textContent=s.last_lsn;
+  const sel=$("txn"),prev=sel.value;
+  sel.innerHTML=Object.keys(s.transactions).filter(t=>s.transactions[t].status==="ACTIVE").map(t=>`<option>${t}</option>`).join("");
+  if([...sel.options].some(o=>o.value===prev))sel.value=prev;
+  document.querySelector("#tt tbody").innerHTML=Object.entries(s.transactions).map(([t,i])=>`<tr><td>${t}</td><td class="${i.status}">${i.status}</td><td>${i.last_lsn}</td></tr>`).join("")||"<tr><td colspan=3 class=small>none (memory empty)</td></tr>";
+  document.querySelector("#lt tbody").innerHTML=Object.entries(s.locks).map(([k,t])=>`<tr><td>${esc(k)}</td><td>held by ${t}</td></tr>`).join("")||"<tr><td class=small>no locks held</td></tr>";
+  $("wf").innerHTML="Wait-for: "+(Object.entries(s.waits_for).map(([a,b])=>`${a} &rarr; ${b}`).join(", ")||"empty");
+  document.querySelector("#bt tbody").innerHTML=Object.entries(s.buffer).map(([k,p])=>`<tr><td>${esc(k)}</td><td>${esc(p.value)}</td><td>${p.page_lsn}</td><td>${p.rec_lsn}</td></tr>`).join("")||"<tr><td colspan=4 class=small>empty</td></tr>";
+  document.querySelector("#dt tbody").innerHTML=Object.entries(s.disk).map(([k,p])=>`<tr><td>${esc(k)}</td><td>${esc(p.value)}</td><td>${p.page_lsn}</td></tr>`).join("")||"<tr><td colspan=3 class=small>empty</td></tr>";
+  const wd=$("wal");
+  wd.innerHTML=w.map(r=>`<div class="log">LSN ${r.lsn} <span class="b ${r.type}">${r.type}</span> ${esc(r.txn_id||"")} `+
+    (r.key?`${esc(r.key)}: ${esc(r.old)} &rarr; ${esc(r.new)} `:"")+(r.prev_lsn?`<span class=small>prev=${r.prev_lsn}</span> `:"")+(r.undo_next_lsn?`<span class=small>undoNext=${r.undo_next_lsn}</span>`:"")+`</div>`).join("")||"<span class=small>empty</span>";
+  wd.scrollTop=wd.scrollHeight;}
+loadScenarios();refresh();
+</script>
+</body></html>
