@@ -1,5 +1,5 @@
 """
-MODULE 7 - ARIES RECOVERY                         (Owner: Anuj Rawat)
+MODULE 7 - ARIES RECOVERY                         (Owner:Palak Panai)
 ==========================================================================
 Runs after a crash. Three passes over the WAL:
 
