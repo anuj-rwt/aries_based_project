@@ -1,5 +1,5 @@
 """
-MODULE 8 - TRANSACTION SCHEDULER                  (Owner: Anuj Rawat)
+MODULE 8 - TRANSACTION SCHEDULER                  (Owner: palak )
 ==========================================================================
 Decides WHICH transaction gets to run its next operation - exactly like an
 OS CPU scheduler picks the next process.
