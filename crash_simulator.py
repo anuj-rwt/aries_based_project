@@ -1,19 +1,4 @@
-"""
-MODULE 5 - CRASH SIMULATOR                        (Owner: Abhay Singh)
-==========================================================================
-Lets us "pull the plug" at an exact moment inside a transaction.
 
- 1. arm(point)   - choose where the crash will happen
- 2. the transaction code calls  crash.check("POINT")  at those places
- 3. when the armed point is reached, SimulatedCrash is raised and the
-    engine wipes everything that lives only in memory (buffer, lock table,
-    transaction table). The WAL file and database file stay on disk -
-    exactly what a real power failure / process kill does.
-
-OS concept   : process crash = loss of volatile memory, files survive;
-               exceptions used to abort the running "process".
-DBMS concept : failure points of a transaction.
-"""
 
 CRASH_POINTS = {
     "BEFORE_WAL":
