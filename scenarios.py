@@ -1,12 +1,5 @@
-"""
-MODULE 11 - CRASH SCENARIOS                       (Owner: Abhay Singh)
-==========================================================================
-The 8 test cases from our notebook, each one scripted end-to-end:
-  setup -> run -> crash -> ARIES recovery -> compare with expected result.
 
-Every scenario starts from the same committed baseline on disk:
-        AccountA = 5000     AccountB = 3000
-"""
+
 from scheduler import Scheduler
 
 BASE = {"AccountA": "5000", "AccountB": "3000"}
