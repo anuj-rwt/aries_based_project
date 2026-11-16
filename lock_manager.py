@@ -1,19 +1,4 @@
-"""
-MODULE 4 - LOCK MANAGER                           (Owner: Abhay Singh)
-==========================================================================
-Concurrency control using exclusive locks (strict two-phase locking):
-  * a transaction must lock a key before reading or writing it
-  * it keeps all its locks until COMMIT / ABORT, then releases them together
 
-Deadlock handling uses a WAIT-FOR GRAPH:
-  edge  T1 -> T2   means "T1 is waiting for a lock that T2 holds".
-  A cycle in this graph (T1 -> T2 -> T1) is a deadlock. We check for a cycle
-  every time a transaction has to wait; the requester becomes the victim.
-
-OS concept   : mutual exclusion, condition variable (threads sleep while
-               waiting for a lock), deadlock detection, timeouts.
-DBMS concept : isolation (ACID "I"), strict 2PL.
-"""
 import threading
 import time
 
