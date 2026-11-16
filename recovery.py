@@ -1,21 +1,3 @@
-"""
-MODULE 7 - ARIES RECOVERY                         (Owner:Palak Panai)
-==========================================================================
-Runs after a crash. Three passes over the WAL:
-
- 1. ANALYSIS  Start at the last checkpoint and scan forward to rebuild
-              - Transaction Table : who was running (losers) / committed (winners)
-              - Dirty Page Table  : which pages might not be on disk
- 2. REDO      "Repeat history": re-apply every UPDATE/CLR whose change is
-              not yet on the page (page_lsn < record lsn) - even for
-              transactions that will be undone later.
- 3. UNDO      Roll back every loser transaction, newest change first,
-              writing a CLR for each undo so that a crash DURING recovery
-              never undoes the same change twice.
-
-OS concept   : reading the log file sequentially, flushing buffers to disk.
-DBMS concept : ARIES (Analysis, Redo, Undo), CLR, LSN, dirty page table.
-"""
 
 
 def recover(wal, buffer):
