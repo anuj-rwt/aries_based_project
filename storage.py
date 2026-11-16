@@ -1,16 +1,4 @@
-"""
-MODULE 1 - STORAGE LAYER                          (Owner: Sujanya Sailwal)
-==========================================================================
-This is the "disk" of our database: a SQLite file with one table
-    kv(key, value, page_lsn)
 
- * Every key is treated as one "page" of the database.
- * page_lsn = LSN of the last log record that was applied to this page.
-   ARIES uses it during REDO to answer: "is this change already on disk?"
-
-OS concept   : file I/O, a mutex so two threads never write the file together.
-DBMS concept : persistent storage, page LSN.
-"""
 import os
 import sqlite3
 import threading
