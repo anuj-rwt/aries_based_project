@@ -1,15 +1,4 @@
-"""
-MODULE 12 - REST API                              (Owner: anuj)
-==========================================================================
-Flask web server. It only translates HTTP requests into Engine calls and
-returns JSON; all the real work happens in the other modules.
 
-Run:   pip install flask
-       python app.py          then open http://127.0.0.1:5000
-
-OS concept   : the web server runs request-handler threads in parallel
-               (threaded=True), all sharing one Engine safely through locks.
-"""
 from flask import Flask, jsonify, render_template, request
 
 import scenarios
