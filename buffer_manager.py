@@ -1,18 +1,4 @@
-"""
-MODULE 3 - BUFFER MANAGER                         (Owner: Sujanya Sailwal)
-==========================================================================
-An in-memory page cache that sits between transactions and the disk.
 
- * Updates go to the buffer first (fast, but VOLATILE - lost in a crash).
- * A page in the buffer that differs from disk is a "dirty page".
- * rec_lsn = LSN of the FIRST update that dirtied the page. The smallest
-   rec_lsn tells recovery where REDO has to start.
- * flush_page() enforces the WAL rule: the log must already be on disk up
-   to the page's LSN before the page itself is written.
-
-OS concept   : page cache / buffering, volatile memory vs. disk.
-DBMS concept : dirty page table, steal/no-force buffer policy, WAL rule.
-"""
 import threading
 
 
