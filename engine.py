@@ -1,21 +1,4 @@
-"""
-MODULE 9 - ENGINE (integration)                   (Owner: Anuj Rawat)
-==========================================================================
-Wires all modules together into one database system and gives the rest of
-the program (REST API, scheduler, scenarios, tests) ONE simple interface.
 
-   Storage <- BufferManager <- TransactionManager -> LockManager
-                  ^                    |
-                  |                    v
-              WALManager <------- CrashSimulator
-                  ^
-                  +------ Recovery (ARIES)
-
- crash()   : wipe everything that lives only in memory
- recover() : run ARIES using the log and database file that survived
- If the program is restarted and a log already exists, recovery runs
- automatically at start-up - just like a real DBMS.
-"""
 import os
 import time
 
