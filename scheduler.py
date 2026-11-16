@@ -1,22 +1,4 @@
-"""
-MODULE 8 - TRANSACTION SCHEDULER                  (Owner: palak )
-==========================================================================
-Decides WHICH transaction gets to run its next operation - exactly like an
-OS CPU scheduler picks the next process.
 
-  policy "fcfs"        : First-Come-First-Served, a transaction runs until it
-                         finishes or gets blocked on a lock
-  policy "round_robin" : each transaction gets `quantum` operations, then goes
-                         to the back of the queue
-
-A transaction that cannot get a lock is BLOCKED and put at the back of the
-queue; it retries later. The result is a step-by-step timeline of the
-interleaving, which makes lock conflicts and deadlocks easy to demonstrate
-(and always reproducible).
-
-OS concept   : CPU scheduling (FCFS, Round Robin, time quantum), ready/blocked
-               queues, context switch.
-"""
 from collections import deque
 
 
